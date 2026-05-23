@@ -1,0 +1,130 @@
+:root {
+  --p1: #29b6f6;
+  --p2: #ef5350;
+  --bg: #0b1020;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #05070f;
+  color: #e8eefc;
+  font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#stage {
+  position: relative;
+  width: 960px;
+  max-width: 100vw;
+}
+
+canvas#game {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: linear-gradient(180deg, #1a2a52 0%, #2d1a44 60%, #14101f 100%);
+  border: 2px solid #2b3a66;
+  border-radius: 8px;
+  image-rendering: auto;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.player-hud { width: 42%; }
+.player-hud.right { text-align: right; }
+
+.player-hud .name {
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-size: 14px;
+  text-shadow: 0 1px 2px #000;
+  margin-bottom: 4px;
+}
+
+.bar {
+  height: 16px;
+  background: #00000055;
+  border: 2px solid #ffffff33;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+
+.bar.meter { height: 9px; }
+
+.bar .fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.12s linear;
+}
+
+#hud-p1 .health .fill { background: linear-gradient(90deg, #ffd24a, #ff8a3d); }
+#hud-p2 .health .fill { background: linear-gradient(90deg, #ff8a3d, #ffd24a); }
+.meter .fill { background: linear-gradient(90deg, #6cf, #b388ff); }
+
+/* P2 bars drain from the left edge visually */
+.player-hud.right .bar { transform: scaleX(-1); }
+
+#timer {
+  font-size: 26px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+  padding-top: 14px;
+}
+
+/* ---------- Center banner ---------- */
+#banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  pointer-events: none;
+}
+
+#banner.hidden { display: none; }
+
+#banner span {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 0 18px #6cf, 0 4px 10px #000;
+  animation: pop 0.25s ease-out;
+}
+
+@keyframes pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ---------- Controls footer ---------- */
+#controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #9fb0d8;
+}
+
+#controls b { color: #e8eefc; }

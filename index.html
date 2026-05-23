@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark vs Blaze - Energy Duel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="stage">
+    <!-- HUD -->
+    <div id="hud">
+      <div class="player-hud" id="hud-p1">
+        <div class="name">SPARK</div>
+        <div class="bar health"><div class="fill" id="hp1"></div></div>
+        <div class="bar meter"><div class="fill" id="mt1"></div></div>
+      </div>
+
+      <div id="timer">&#8734;</div>
+
+      <div class="player-hud right" id="hud-p2">
+        <div class="name">BLAZE</div>
+        <div class="bar health"><div class="fill" id="hp2"></div></div>
+        <div class="bar meter"><div class="fill" id="mt2"></div></div>
+      </div>
+    </div>
+
+    <canvas id="game" width="960" height="540"></canvas>
+
+    <!-- Center banner for round start / KO / winner -->
+    <div id="banner" class="hidden"><span id="banner-text"></span></div>
+
+    <footer id="controls">
+      <span><b>P1 (Spark):</b> A/D move &middot; W jump &middot; S block &middot; F punch &middot; G kick &middot; H beam</span>
+      <span><b>P2 (Blaze):</b> &larr;/&rarr; move &middot; &uarr; jump &middot; &darr; block &middot; J punch &middot; K kick &middot; L beam</span>
+    </footer>
+  </div>
+
+  <!-- Classic scripts, loaded in dependency order (no modules => works over file:// too) -->
+  <script src="js/input.js"></script>
+  <script src="js/skeleton.js"></script>
+  <script src="js/projectile.js"></script>
+  <script src="js/fighter.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
