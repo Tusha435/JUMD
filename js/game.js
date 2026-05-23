@@ -12,6 +12,7 @@
       this.phaseTime = 0;
       this.winner = null;
       this.shake = 0;
+      this.flash = 0;
 
       this.p1 = new Fighter({
         name: 'SPARK', color: '#cfe8ff', hairColor: '#29b6f6',
@@ -51,6 +52,8 @@
       this.p1.reset();
       this.p2.reset();
       this.projectiles.length = 0;
+      if (window.Effects) Effects.clear();
+      this.flash = 0;
       this.winner = null;
       this.phase = 'intro';
       this.phaseTime = 0;
@@ -61,6 +64,8 @@
     step() {
       this.phaseTime++;
       if (this.shake > 0) this.shake *= 0.85;
+      if (this.flash > 0) this.flash *= 0.88;
+      if (window.Effects) Effects.update();
 
       if (this.phase === 'intro') {
         if (this.phaseTime === 60) this.setBanner('FIGHT!');
@@ -82,19 +87,26 @@
       }
 
       // ----- fight -----
-      const spawn = (p) => this.projectiles.push(p);
+      const spawn = (p) => {
+        this.projectiles.push(p);
+        if (p.kind === 'super') { this.flash = 1; this.shake = Math.max(this.shake, 14); }
+      };
 
       this.p1.handleInput(Input.held('p1'), {
         punch: Input.pressed('p1', 'punch'),
         kick: Input.pressed('p1', 'kick'),
         beam: Input.pressed('p1', 'beam'),
         up: Input.pressed('p1', 'up'),
+        left: Input.pressed('p1', 'left'),
+        right: Input.pressed('p1', 'right'),
       });
       this.p2.handleInput(Input.held('p2'), {
         punch: Input.pressed('p2', 'punch'),
         kick: Input.pressed('p2', 'kick'),
         beam: Input.pressed('p2', 'beam'),
         up: Input.pressed('p2', 'up'),
+        left: Input.pressed('p2', 'left'),
+        right: Input.pressed('p2', 'right'),
       });
 
       this.p1.update(this.p2, spawn);
@@ -133,14 +145,15 @@
     resolveMelee(attacker, defender) {
       const hb = attacker.activeHitbox();
       if (!hb) return;
-      if (!aabb(hb, defender.hurtbox())) return;
+      const dhb = defender.hurtbox();
+      if (!aabb(hb, dhb)) return;
       const fromDir = attacker.facing;
       const blocking = defender.state === 'block';
-      const hit = defender.takeHit(hb.atk.dmg, hb.atk.kb, fromDir, blocking);
-      if (hit) {
+      const res = defender.takeHit(hb.atk.dmg, hb.atk.kb, fromDir, blocking, hb.atk.launch);
+      if (res && res.hit) {
         attacker.hitConsumed = true;
         attacker.addMeter(hb.atk.meter);
-        this.shake = blocking ? 3 : 7;
+        this.onImpact(defender, fromDir, res.blocked, hb.atk.launch ? 18 : 12);
       }
     }
 
@@ -149,15 +162,39 @@
         p.update(STAGE_W);
         if (p.dead) continue;
         const target = p.owner === this.p1 ? this.p2 : this.p1;
+
+        if (p.kind === 'super') {
+          // Multi-hit beam: tick damage on a cooldown while overlapping.
+          p._cd = (p._cd || 0) - 1;
+          if (aabb(p.rect(STAGE_W), target.hurtbox()) && p._cd <= 0) {
+            const blocking = target.state === 'block';
+            target.takeHit(p.dmgPerHit, p.knockback, p.dir, blocking);
+            p.owner.addMeter(0);
+            p._cd = 3;
+            this.onImpact(target, p.dir, blocking, 10);
+            this.shake = Math.max(this.shake, blocking ? 6 : 12);
+          }
+          continue;
+        }
+
         if (aabb(p.hurtbox(), target.hurtbox())) {
           const blocking = target.state === 'block';
-          target.takeHit(p.damage, p.knockback, p.dir, blocking);
+          const res = target.takeHit(p.damage, p.knockback, p.dir, blocking);
           p.owner.addMeter(6);
           p.dead = true;
-          this.shake = blocking ? 5 : 10;
+          if (res && res.hit) this.onImpact(target, p.dir, res.blocked, 16);
         }
       }
       this.projectiles = this.projectiles.filter((p) => !p.dead);
+    }
+
+    // Shared hit reaction: sparks + screen shake.
+    onImpact(defender, dir, blocked, count) {
+      const ix = defender.x + dir * 10;
+      const iy = defender.y - 38;
+      const color = blocked ? '#bcd4ff' : defender.hairColor;
+      if (window.Effects) Effects.burst(ix, iy, color, blocked ? 6 : count, blocked ? 4 : 7);
+      this.shake = Math.max(this.shake, blocked ? 3 : 7);
     }
 
     syncHud() {
@@ -178,11 +215,27 @@
 
       this.drawBackground(ctx);
 
-      for (const p of this.projectiles) p.draw(ctx);
+      // Motion trails sit behind everything.
+      if (window.Effects) Effects.drawAfterimages(ctx);
+
       this.p1.draw(ctx);
       this.p2.draw(ctx);
 
+      for (const p of this.projectiles) p.draw(ctx, STAGE_W);
+
+      // Impact sparks / motes on top.
+      if (window.Effects) Effects.drawParticles(ctx);
+
       ctx.restore();
+
+      // Full-screen flash for super beams (drawn untransformed).
+      if (this.flash > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.6, this.flash);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+        ctx.restore();
+      }
     }
 
     drawBackground(ctx) {

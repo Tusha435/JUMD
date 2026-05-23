@@ -68,6 +68,20 @@
       { x: 6, y: 16 }, { x: 6, y: 38 },
       { x: -14, y: 16 }, { x: -20, y: 38 }  // braced rear leg
     ),
+    superbeam: P(
+      { x: -4, y: -58 }, { x: -6, y: -38 },
+      { x: 16, y: -30 }, { x: 32, y: -30 }, // both palms thrust forward, leaning in
+      { x: 12, y: -32 }, { x: 28, y: -32 },
+      { x: 12, y: 16 }, { x: 18, y: 38 },
+      { x: -20, y: 16 }, { x: -30, y: 38 }  // deep braced stance
+    ),
+    launcher: P(
+      { x: -6, y: -56 }, { x: -4, y: -38 },
+      { x: -10, y: -28 }, { x: -18, y: -20 }, // arms swept back for balance
+      { x: -12, y: -24 }, { x: -20, y: -14 },
+      { x: 8, y: -12 }, { x: 16, y: -46 },    // front leg rising kick (foot above hips)
+      { x: -10, y: 16 }, { x: -14, y: 38 }    // back leg planted
+    ),
     hitstun: P(
       { x: -6, y: -58 }, { x: -4, y: -38 },
       { x: -6, y: -26 }, { x: -16, y: -18 }, // arms thrown back
@@ -156,6 +170,7 @@
     const footB = tx(x, y, pose.footB, facing);
 
     ctx.save();
+    if (o.alpha != null) ctx.globalAlpha = o.alpha;
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';

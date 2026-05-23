@@ -5,14 +5,20 @@
   const WALK_SPEED = 4.2;
   const JUMP_V = 16;
   const FRICTION = 0.8;
+  const DASH_SPEED = 11;
+  const DASH_FRAMES = 11;
+  const DOUBLE_TAP_WINDOW = 11; // frames to register a double-tap dash
 
-  // Attack frame data (60 Hz): [startup, active, recovery].
+  // Attack frame data (60 Hz): startup -> active -> recovery.
+  // `launch` applies upward velocity to the victim (juggle starter).
   const ATTACKS = {
     punch: { startup: 4, active: 4, recovery: 9, reach: 52, top: -48, h: 22, dmg: 7, kb: 5, hitstun: 14, meter: 7 },
     kick: { startup: 6, active: 5, recovery: 14, reach: 64, top: -30, h: 26, dmg: 11, kb: 9, hitstun: 20, meter: 9 },
+    launcher: { startup: 5, active: 6, recovery: 18, reach: 46, top: -64, h: 80, dmg: 9, kb: 3, hitstun: 30, meter: 14, launch: 17, ground: true },
   };
 
-  const BEAM_COST = 50;
+  const BEAM_COST = 35;   // light ki blast
+  const SUPER_COST = 100; // full-meter super beam
 
   class Fighter {
     constructor(opts) {
@@ -42,10 +48,15 @@
       this.hitConsumed = false;
       this.beamFired = false;
       this.animClock = 0;
+      this.dashTimer = 0;
+      this.dashDir = 0;
+      this.lastTapDir = 0;
+      this.lastTapFrame = -100;
+      this.airActed = false;   // limit to one air attack per jump
     }
 
     get busy() {
-      return ['punch', 'kick', 'beam', 'hitstun', 'ko'].includes(this.state);
+      return ['punch', 'kick', 'launcher', 'beam', 'superbeam', 'hitstun', 'ko'].includes(this.state);
     }
 
     setState(s) {
@@ -74,59 +85,104 @@
       return { x, y: this.y + a.top, w: a.reach, h: a.h, atk: a };
     }
 
-    // ---- Input-driven actions (only when grounded & not busy) ----
+    // ---- Input-driven actions ----
     handleInput(input, pressed) {
       if (this.state === 'ko' || this.busy) return;
 
-      const blocking = input.down && this.onGround;
+      // Double-tap dash (ground dash or air dash).
+      if (pressed.left) this.tryDash(-1);
+      if (pressed.right) this.tryDash(1);
 
-      if (this.onGround) {
-        if (pressed.punch) return this.setState('punch');
-        if (pressed.kick) return this.setState('kick');
-        if (pressed.beam && this.meter >= BEAM_COST) {
+      // Beam button: super at full meter, otherwise a light ki blast.
+      if (pressed.beam) {
+        if (this.meter >= SUPER_COST) {
+          this.meter -= SUPER_COST;
+          this.vx = 0;
+          return this.setState('superbeam');
+        }
+        if (this.meter >= BEAM_COST) {
           this.meter -= BEAM_COST;
+          if (this.onGround) this.vx = 0;
           return this.setState('beam');
         }
+      }
+
+      if (this.onGround) {
+        // Down + Kick = launcher (anti-air / juggle starter).
+        if (pressed.kick && input.down) return this.setState('launcher');
+        if (pressed.punch) return this.setState('punch');
+        if (pressed.kick) return this.setState('kick');
         if (pressed.up) {
           this.vy = -JUMP_V;
           this.onGround = false;
+          this.airActed = false;
           this.setState('jump');
           return;
         }
-        if (blocking) {
+        if (input.down) {
           this.vx = 0;
           return this.setState('block');
         }
+      } else if (!this.airActed) {
+        // One air attack per jump (enables juggles).
+        if (pressed.punch) { this.airActed = true; return this.setState('punch'); }
+        if (pressed.kick) { this.airActed = true; return this.setState('kick'); }
       }
 
-      // Horizontal movement (air control allowed, reduced).
-      const speed = this.onGround ? WALK_SPEED : WALK_SPEED * 0.7;
-      if (input.left && !input.right) this.vx = -speed;
-      else if (input.right && !input.left) this.vx = speed;
-      else if (this.onGround) this.vx *= FRICTION;
+      // Horizontal movement (skipped while dashing so the dash carries through).
+      if (this.dashTimer <= 0) {
+        const speed = this.onGround ? WALK_SPEED : WALK_SPEED * 0.7;
+        if (input.left && !input.right) this.vx = -speed;
+        else if (input.right && !input.left) this.vx = speed;
+        else if (this.onGround) this.vx *= FRICTION;
+      }
 
-      if (this.onGround) {
+      if (this.onGround && this.dashTimer <= 0) {
         this.setState(Math.abs(this.vx) > 0.4 ? 'walk' : 'idle');
       }
+    }
+
+    tryDash(dir) {
+      const recent = this.animClock - this.lastTapFrame <= DOUBLE_TAP_WINDOW;
+      if (recent && this.lastTapDir === dir && this.dashTimer <= 0) {
+        this.dashTimer = DASH_FRAMES;
+        this.dashDir = dir;
+        this.vx = DASH_SPEED * dir;
+        if (this.onGround && Effects) Effects.dust(this.x, this.groundY + 42, -dir);
+      }
+      this.lastTapDir = dir;
+      this.lastTapFrame = this.animClock;
     }
 
     update(opponent, spawnProjectile) {
       this.animClock++;
       this.t++;
 
-      // Physics.
-      this.vy += GRAVITY;
+      // Dash: hold speed for a few frames and trail afterimages.
+      if (this.dashTimer > 0) {
+        this.dashTimer--;
+        this.vx = DASH_SPEED * this.dashDir * (0.5 + this.dashTimer / DASH_FRAMES);
+        if (this.dashTimer % 2 === 0 && Effects) {
+          Effects.addAfterimage(this.x, this.y, this.facing, clonePose(this.disp), this.hairColor);
+        }
+      }
+
+      // Physics. Reduced gravity while launched upward feels floatier (juggle).
+      const g = (this.state === 'hitstun' && this.vy < 0) ? GRAVITY * 0.7 : GRAVITY;
+      this.vy += g;
       this.x += this.vx;
       this.y += this.vy;
 
       // Ground clamp.
       if (this.y >= this.groundY) {
         this.y = this.groundY;
-        this.vy = 0;
         if (!this.onGround) {
           this.onGround = true;
+          this.airActed = false;
+          if (this.vy > 6 && Effects) Effects.dust(this.x, this.groundY + 42);
           if (this.state === 'jump') this.setState('idle');
         }
+        this.vy = 0;
       } else {
         this.onGround = false;
       }
@@ -151,29 +207,43 @@
     tickState(spawnProjectile) {
       const a = ATTACKS[this.state];
       if (a) {
-        if (this.t >= a.startup + a.active + a.recovery) this.setState('idle');
+        if (this.t >= a.startup + a.active + a.recovery) {
+          this.setState(this.onGround ? 'idle' : 'jump');
+        }
         return;
       }
       if (this.state === 'beam') {
+        const hx = this.x + this.facing * 38;
+        const hy = this.y - 34;
+        if (this.t < 12 && Effects) Effects.chargeMotes(hx, hy, this.hairColor);
         if (this.t === 12 && !this.beamFired) {
           this.beamFired = true;
-          const hx = this.x + this.facing * 38;
-          const hy = this.y - 34;
           spawnProjectile(new Projectile(hx, hy, this.facing, this));
         }
-        if (this.t >= 30) this.setState('idle');
+        if (this.t >= 28) this.setState(this.onGround ? 'idle' : 'jump');
+        return;
+      }
+      if (this.state === 'superbeam') {
+        const hx = this.x + this.facing * 38;
+        const hy = this.y - 34;
+        if (this.t < 14 && Effects) Effects.chargeMotes(hx, hy, this.hairColor);
+        if (this.t === 14 && !this.beamFired) {
+          this.beamFired = true;
+          spawnProjectile(new SuperBeam(this));
+        }
+        if (this.t >= 14 + 44) this.setState('idle');
         return;
       }
       if (this.state === 'hitstun') {
-        this.vx *= 0.85;
-        if (this.t >= this.hitstunDur) this.setState(this.onGround ? 'idle' : 'jump');
+        this.vx *= 0.9;
+        if (this.t >= this.hitstunDur && this.onGround) this.setState('idle');
         return;
       }
     }
 
-    takeHit(dmg, kb, fromDir, defenderBlocking) {
+    takeHit(dmg, kb, fromDir, defenderBlocking, launch) {
       if (this.state === 'ko') return false;
-      const blocked = defenderBlocking && fromDir === this.facing;
+      const blocked = defenderBlocking && fromDir === this.facing && this.onGround;
       if (blocked) {
         this.hp -= Math.max(1, Math.round(dmg * 0.2)); // chip
         this.vx = 2 * fromDir;                          // small pushback
@@ -181,8 +251,13 @@
       } else {
         this.hp -= dmg;
         this.vx = kb * fromDir;
-        this.vy = -kb * 0.5;
-        this.hitstunDur = 10 + Math.round(kb);
+        if (launch) {
+          this.vy = -launch;          // pop into the air for a juggle
+          this.onGround = false;
+        } else {
+          this.vy = Math.min(this.vy, -kb * 0.5);
+        }
+        this.hitstunDur = 10 + Math.round(kb + (launch || 0));
         this.setState('hitstun');
         this.meter = Math.min(100, this.meter + 5);
       }
@@ -190,7 +265,7 @@
         this.hp = 0;
         this.setState('ko');
       }
-      return true;
+      return { hit: true, blocked };
     }
 
     addMeter(v) { this.meter = Math.min(100, this.meter + v); }
@@ -202,7 +277,9 @@
         case 'hitstun': return 'hitstun';
         case 'punch': return 'punch';
         case 'kick': return 'kick';
+        case 'launcher': return 'launcher';
         case 'beam': return 'beam';
+        case 'superbeam': return 'superbeam';
         case 'block': return 'block';
         case 'crouch': return 'crouch';
       }
@@ -226,8 +303,31 @@
       if (this.state === 'idle') bob = Math.sin(this.animClock * 0.08) * 1.2;
       else if (this.state === 'walk') bob = Math.abs(Math.sin(this.animClock * 0.25)) * 2.5;
 
-      const charge = this.state === 'beam' ? Math.min(1, this.t / 12) : 0;
-      Skeleton.draw(ctx, this.x, this.y + bob, this.facing, this.disp, {
+      const cy = this.y + bob;
+
+      // Aura: pulsing glow that intensifies with meter (and full while charging).
+      const charging = this.state === 'beam' || this.state === 'superbeam';
+      const auraK = charging ? 1 : (this.meter >= 50 ? (this.meter - 50) / 50 : 0);
+      if (auraK > 0.02) {
+        const pulse = 0.85 + Math.sin(this.animClock * 0.3) * 0.15;
+        const r = (38 + auraK * 26) * pulse;
+        ctx.save();
+        ctx.globalAlpha = 0.35 * auraK;
+        const grd = ctx.createRadialGradient(this.x, cy - 30, 4, this.x, cy - 30, r);
+        grd.addColorStop(0, this.hairColor);
+        grd.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(this.x, cy - 30, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      let charge = 0;
+      if (this.state === 'beam') charge = Math.min(1, this.t / 12);
+      else if (this.state === 'superbeam') charge = Math.min(1, this.t / 14);
+
+      Skeleton.draw(ctx, this.x, cy, this.facing, this.disp, {
         color: this.color,
         hairColor: this.hairColor,
         charge,
@@ -243,5 +343,6 @@
 
   Fighter.ATTACKS = ATTACKS;
   Fighter.BEAM_COST = BEAM_COST;
+  Fighter.SUPER_COST = SUPER_COST;
   window.Fighter = Fighter;
 })();
