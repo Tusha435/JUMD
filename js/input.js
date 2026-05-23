@@ -5,6 +5,7 @@
   const blank = () => ({
     left: false, right: false, up: false, down: false,
     punch: false, kick: false, beam: false,
+    special: false, switchWeapon: false,
   });
 
   const state = { p1: blank(), p2: blank() };
@@ -23,6 +24,8 @@
     KeyF: ['p1', 'punch'],
     KeyG: ['p1', 'kick'],
     KeyH: ['p1', 'beam'],
+    KeyE: ['p1', 'special'],
+    KeyQ: ['p1', 'switchWeapon'],
 
     // Player 2 (arrows + JKL)
     ArrowLeft: ['p2', 'left'],
@@ -32,6 +35,8 @@
     KeyJ: ['p2', 'punch'],
     KeyK: ['p2', 'kick'],
     KeyL: ['p2', 'beam'],
+    KeyO: ['p2', 'special'],
+    KeyU: ['p2', 'switchWeapon'],
   };
 
   window.addEventListener('keydown', (e) => {

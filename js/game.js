@@ -28,6 +28,8 @@
         hp2: document.getElementById('hp2'),
         mt1: document.getElementById('mt1'),
         mt2: document.getElementById('mt2'),
+        wp1: document.getElementById('wp1'),
+        wp2: document.getElementById('wp2'),
         banner: document.getElementById('banner'),
         bannerText: document.getElementById('banner-text'),
       };
@@ -92,22 +94,8 @@
         if (p.kind === 'super') { this.flash = 1; this.shake = Math.max(this.shake, 14); }
       };
 
-      this.p1.handleInput(Input.held('p1'), {
-        punch: Input.pressed('p1', 'punch'),
-        kick: Input.pressed('p1', 'kick'),
-        beam: Input.pressed('p1', 'beam'),
-        up: Input.pressed('p1', 'up'),
-        left: Input.pressed('p1', 'left'),
-        right: Input.pressed('p1', 'right'),
-      });
-      this.p2.handleInput(Input.held('p2'), {
-        punch: Input.pressed('p2', 'punch'),
-        kick: Input.pressed('p2', 'kick'),
-        beam: Input.pressed('p2', 'beam'),
-        up: Input.pressed('p2', 'up'),
-        left: Input.pressed('p2', 'left'),
-        right: Input.pressed('p2', 'right'),
-      });
+      this.p1.handleInput(Input.held('p1'), this.pressedFor('p1'));
+      this.p2.handleInput(Input.held('p2'), this.pressedFor('p2'));
 
       this.p1.update(this.p2, spawn);
       this.p2.update(this.p1, spawn);
@@ -126,6 +114,19 @@
       }
 
       this.syncHud();
+    }
+
+    pressedFor(p) {
+      return {
+        punch: Input.pressed(p, 'punch'),
+        kick: Input.pressed(p, 'kick'),
+        beam: Input.pressed(p, 'beam'),
+        up: Input.pressed(p, 'up'),
+        left: Input.pressed(p, 'left'),
+        right: Input.pressed(p, 'right'),
+        special: Input.pressed(p, 'special'),
+        switchWeapon: Input.pressed(p, 'switchWeapon'),
+      };
     }
 
     // Push fighters apart so they don't occupy the same column.
@@ -178,6 +179,13 @@
         }
 
         if (aabb(p.hurtbox(), target.hurtbox())) {
+          // Staff spin deflects incoming shots back at the attacker.
+          if (target.state === 'spin' && p.reflect) {
+            p.reflect(target);
+            this.onImpact(target, -p.dir, false, 8);
+            this.shake = Math.max(this.shake, 5);
+            continue;
+          }
           const blocking = target.state === 'block';
           const res = target.takeHit(p.damage, p.knockback, p.dir, blocking);
           p.owner.addMeter(6);
@@ -202,6 +210,8 @@
       this.dom.hp2.style.width = this.p2.hp + '%';
       this.dom.mt1.style.width = this.p1.meter + '%';
       this.dom.mt2.style.width = this.p2.meter + '%';
+      if (this.dom.wp1) this.dom.wp1.textContent = this.p1.weaponDef().name;
+      if (this.dom.wp2) this.dom.wp2.textContent = this.p2.weaponDef().name;
     }
 
     // Render (called every animation frame).

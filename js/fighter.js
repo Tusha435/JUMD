@@ -53,10 +53,26 @@
       this.lastTapDir = 0;
       this.lastTapFrame = -100;
       this.airActed = false;   // limit to one air attack per jump
+      this.weapon = 'fists';
+      this.specialCd = 0;      // weapon-ability cooldown (frames)
     }
 
     get busy() {
-      return ['punch', 'kick', 'launcher', 'beam', 'superbeam', 'hitstun', 'ko'].includes(this.state);
+      return ['punch', 'kick', 'launcher', 'beam', 'superbeam', 'special', 'spin', 'hitstun', 'ko'].includes(this.state);
+    }
+
+    weaponDef() { return Weapons.defs[this.weapon] || Weapons.defs.fists; }
+
+    // Move stats for the current melee state, sourced from the equipped weapon.
+    moveData() {
+      const slot = this.state === 'punch' ? 'light'
+        : this.state === 'kick' ? 'heavy'
+        : this.state === 'launcher' ? 'launcher' : null;
+      return slot ? this.weaponDef().moves[slot] : null;
+    }
+
+    switchWeapon() {
+      this.weapon = Weapons.next(this.weapon);
     }
 
     setState(s) {
@@ -78,7 +94,16 @@
     // AABB of an active melee hitbox, or null.
     activeHitbox() {
       if (this.hitConsumed) return null;
-      const a = ATTACKS[this.state];
+
+      // Staff spin: a symmetric hitbox surrounding the fighter.
+      if (this.state === 'spin') {
+        const sp = this.weaponDef().special;
+        if (this.t < sp.active[0] || this.t > sp.active[1]) return null;
+        const atk = { dmg: sp.dmg, kb: sp.kb, meter: sp.meter };
+        return { x: this.x - sp.reach, y: this.y + sp.top, w: sp.reach * 2, h: sp.h, atk };
+      }
+
+      const a = this.moveData();
       if (!a) return null;
       if (this.t < a.startup || this.t >= a.startup + a.active) return null;
       const x = this.facing === 1 ? this.x + 14 : this.x - 14 - a.reach;
@@ -88,6 +113,21 @@
     // ---- Input-driven actions ----
     handleInput(input, pressed) {
       if (this.state === 'ko' || this.busy) return;
+
+      // Cycle weapon (instant, no state change).
+      if (pressed.switchWeapon) this.switchWeapon();
+
+      // Weapon special ability.
+      if (pressed.special && this.specialCd <= 0) {
+        const sp = this.weaponDef().special;
+        if (sp && (this.onGround || sp.air)) {
+          this.specialCd = sp.cd + (sp.dur || 0);
+          if (sp.kind === 'spin') return this.setState('spin');
+          this.specialKind = sp.kind;
+          if (this.onGround) this.vx = 0;
+          return this.setState('special');
+        }
+      }
 
       // Double-tap dash (ground dash or air dash).
       if (pressed.left) this.tryDash(-1);
@@ -157,6 +197,7 @@
     update(opponent, spawnProjectile) {
       this.animClock++;
       this.t++;
+      if (this.specialCd > 0) this.specialCd--;
 
       // Dash: hold speed for a few frames and trail afterimages.
       if (this.dashTimer > 0) {
@@ -234,6 +275,23 @@
         if (this.t >= 14 + 44) this.setState('idle');
         return;
       }
+      if (this.state === 'special') {
+        const sp = this.weaponDef().special;
+        const hx = this.x + this.facing * 36;
+        const hy = this.y - 36;
+        if (this.t === sp.frame && !this.beamFired) {
+          this.beamFired = true;
+          spawnProjectile(new Projectile(hx, hy, this.facing, this, sp.kind));
+          if (Effects) Effects.burst(hx, hy, this.hairColor, 8, 5);
+        }
+        if (this.t >= sp.dur) this.setState(this.onGround ? 'idle' : 'jump');
+        return;
+      }
+      if (this.state === 'spin') {
+        const sp = this.weaponDef().special;
+        if (this.t >= sp.dur) this.setState('idle');
+        return;
+      }
       if (this.state === 'hitstun') {
         this.vx *= 0.9;
         if (this.t >= this.hitstunDur && this.onGround) this.setState('idle');
@@ -272,12 +330,15 @@
 
     // ---- Rendering ----
     poseName() {
+      const armed = this.weapon !== 'fists';
       switch (this.state) {
         case 'ko': return 'ko';
         case 'hitstun': return 'hitstun';
-        case 'punch': return 'punch';
-        case 'kick': return 'kick';
-        case 'launcher': return 'launcher';
+        case 'punch': return 'punch';                       // thrust works for all
+        case 'kick': return armed ? (this.weapon === 'staff' ? 'sweep' : 'slash') : 'kick';
+        case 'launcher': return armed ? 'slash' : 'launcher';
+        case 'special': return this.specialKind === 'knife' ? 'punch' : 'slash';
+        case 'spin': return 'spin';
         case 'beam': return 'beam';
         case 'superbeam': return 'superbeam';
         case 'block': return 'block';
@@ -332,6 +393,35 @@
         hairColor: this.hairColor,
         charge,
       });
+
+      // Weapon held in the front hand, oriented along the forearm.
+      if (this.weapon !== 'fists') {
+        const hand = Skeleton.worldPoint(this.x, cy, this.facing, this.disp, 'handF');
+        const elbow = Skeleton.worldPoint(this.x, cy, this.facing, this.disp, 'elbowF');
+        let ang = Math.atan2(hand.y - elbow.y, hand.x - elbow.x);
+        if (this.state === 'spin') ang = this.t * 0.7 * this.facing;
+
+        const swinging = this.activeHitbox() != null &&
+          ['punch', 'kick', 'launcher', 'spin'].includes(this.state);
+        const glow = (this.state === 'special' || this.state === 'spin') ? 1 : (swinging ? 0.6 : 0);
+
+        if (swinging) this.drawSlashArc(ctx, hand, ang);
+        Weapons.draw(ctx, this.weapon, hand, ang, this.facing, glow);
+      }
+    }
+
+    drawSlashArc(ctx, hand, ang) {
+      ctx.save();
+      ctx.translate(hand.x, hand.y);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 56, -0.95, 0.95);
+      ctx.arc(0, 0, 30, 0.95, -0.95, true);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     }
   }
 

@@ -58,6 +58,19 @@ canvas#game {
   margin-bottom: 4px;
 }
 
+.player-hud .weapon {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #0b1020;
+  background: #ffd24a;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
 .bar {
   height: 16px;
   background: #00000055;

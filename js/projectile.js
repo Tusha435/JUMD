@@ -1,32 +1,59 @@
 // Energy beam projectile. Exposed globally as `Projectile`.
 (function () {
+  // Travelling projectile. Defaults to a ki blast; `opts` reskins it as a
+  // sword blade-wave ('crescent') or a thrown knife ('knife').
+  const PRESETS = {
+    blast: { style: 'orb', speed: 12, r: 13, damage: 9, knockback: 8, life: 180 },
+    blade: { style: 'crescent', speed: 13, r: 17, damage: 13, knockback: 9, life: 110 },
+    knife: { style: 'knife', speed: 17, r: 9, damage: 6, knockback: 4, life: 120 },
+  };
+
   class Projectile {
-    constructor(x, y, dir, owner) {
-      this.kind = 'blast';
+    constructor(x, y, dir, owner, kind) {
+      const p = PRESETS[kind] || PRESETS.blast;
+      this.kind = 'shot';        // collision category (vs the 'super' beam)
+      this.style = p.style;
       this.x = x;
       this.y = y;
-      this.dir = dir;          // +1 / -1
-      this.vx = 12 * dir;
-      this.owner = owner;      // fighter that fired it
-      this.r = 13;             // collision radius
+      this.dir = dir;            // +1 / -1
+      this.vx = p.speed * dir;
+      this.owner = owner;        // fighter that fired it
+      this.r = p.r;
       this.dead = false;
-      this.life = 180;         // frames before auto-expire
+      this.life = p.life;
       this.color = owner.hairColor;
-      this.damage = 9;
-      this.knockback = 8;
+      this.damage = p.damage;
+      this.knockback = p.knockback;
+      this.spin = 0;
     }
 
     hurtbox() {
       return { x: this.x - this.r, y: this.y - this.r, w: this.r * 2, h: this.r * 2 };
     }
 
+    // Send it back the other way (staff spin reflect).
+    reflect(newOwner) {
+      this.dir *= -1;
+      this.vx *= -1.15;
+      this.owner = newOwner;
+      this.color = newOwner.hairColor;
+      this.damage = Math.round(this.damage * 1.2);
+    }
+
     update(stageW) {
       this.x += this.vx;
+      this.spin += 0.5 * this.dir;
       this.life--;
       if (this.life <= 0 || this.x < -40 || this.x > stageW + 40) this.dead = true;
     }
 
     draw(ctx) {
+      if (this.style === 'crescent') return this.drawCrescent(ctx);
+      if (this.style === 'knife') return this.drawKnife(ctx);
+      this.drawOrb(ctx);
+    }
+
+    drawOrb(ctx) {
       ctx.save();
       const grd = ctx.createRadialGradient(this.x, this.y, 2, this.x, this.y, this.r + 8);
       grd.addColorStop(0, '#ffffff');
@@ -36,13 +63,56 @@
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r + 8, 0, Math.PI * 2);
       ctx.fill();
-
-      // Trailing comet tail.
       ctx.globalAlpha = 0.5;
       ctx.fillStyle = this.color;
       ctx.beginPath();
       ctx.ellipse(this.x - this.vx * 1.6, this.y, this.r * 1.4, this.r * 0.6, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    }
+
+    drawCrescent(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.scale(this.dir, 1);
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = this.color;
+      ctx.globalAlpha = 0.95;
+      const r = this.r + 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.arc(-8, 0, r, Math.PI * 0.7, -Math.PI * 0.7, true);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(2, 0, r * 0.6, -Math.PI * 0.6, Math.PI * 0.6);
+      ctx.arc(-4, 0, r * 0.6, Math.PI * 0.6, -Math.PI * 0.6, true);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    drawKnife(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.spin);
+      ctx.fillStyle = '#e6edf5';
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(-6, -4);
+      ctx.lineTo(-10, 0);
+      ctx.lineTo(-6, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0);
+      ctx.lineTo(-12, 0);
+      ctx.stroke();
       ctx.restore();
     }
   }

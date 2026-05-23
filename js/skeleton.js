@@ -82,6 +82,27 @@
       { x: 8, y: -12 }, { x: 16, y: -46 },    // front leg rising kick (foot above hips)
       { x: -10, y: 16 }, { x: -14, y: 38 }    // back leg planted
     ),
+    slash: P(
+      { x: 2, y: -60 }, { x: 0, y: -40 },
+      { x: 18, y: -46 }, { x: 32, y: -28 },   // front arm mid overhead-chop, hand forward+down
+      { x: -8, y: -24 }, { x: -12, y: -12 },
+      { x: 10, y: 16 }, { x: 16, y: 38 },
+      { x: -10, y: 16 }, { x: -16, y: 38 }
+    ),
+    sweep: P(
+      { x: -2, y: -55 }, { x: -2, y: -36 },
+      { x: 16, y: -26 }, { x: 32, y: -16 },   // front arm extended low-forward (wide swing)
+      { x: -12, y: -22 }, { x: -18, y: -12 },
+      { x: 16, y: 16 }, { x: 24, y: 38 },     // wide stance
+      { x: -14, y: 16 }, { x: -22, y: 38 }
+    ),
+    spin: P(
+      { x: 0, y: -60 }, { x: 0, y: -40 },
+      { x: 14, y: -38 }, { x: 22, y: -30 },   // both arms out holding a twirling staff
+      { x: -14, y: -38 }, { x: -22, y: -30 },
+      { x: 9, y: 16 }, { x: 12, y: 38 },
+      { x: -9, y: 16 }, { x: -12, y: 38 }
+    ),
     hitstun: P(
       { x: -6, y: -58 }, { x: -4, y: -38 },
       { x: -6, y: -26 }, { x: -16, y: -18 }, // arms thrown back
@@ -230,5 +251,11 @@
     return `rgb(${r},${g},${b})`;
   }
 
-  window.Skeleton = { POSES, lerpPose, getPose, draw, HEAD_R };
+  // World position of a single joint, given pelvis pos + facing + pose.
+  function worldPoint(x, y, facing, pose, key) {
+    const p = pose[key] || { x: 0, y: 0 };
+    return { x: x + p.x * facing, y: y + p.y };
+  }
+
+  window.Skeleton = { POSES, lerpPose, getPose, draw, worldPoint, HEAD_R };
 })();
