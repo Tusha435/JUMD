@@ -15,11 +15,11 @@
       this.flash = 0;
 
       this.p1 = new Fighter({
-        name: 'SPARK', color: '#cfe8ff', hairColor: '#29b6f6',
+        name: 'SPARK', color: '#1565d8', hairColor: '#00a8ff',
         x: 280, facing: 1, player: 'p1', groundY: GROUND_Y, stageW: STAGE_W,
       });
       this.p2 = new Fighter({
-        name: 'BLAZE', color: '#ffdcd6', hairColor: '#ef5350',
+        name: 'BLAZE', color: '#e2452f', hairColor: '#ff9124',
         x: 680, facing: -1, player: 'p2', groundY: GROUND_Y, stageW: STAGE_W,
       });
 
