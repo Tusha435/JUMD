@@ -3,36 +3,87 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spark vs Blaze - Energy Duel</title>
+  <meta name="theme-color" content="#05070f" />
+  <title>Spark vs Blaze — Energy Duel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Chakra+Petch:wght@400;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- Ambient backdrop layers -->
+  <div class="bg-aurora" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
   <div id="stage">
-    <!-- HUD -->
-    <div id="hud">
-      <div class="player-hud" id="hud-p1">
-        <div class="name">SPARK <span class="weapon" id="wp1">FISTS</span></div>
-        <div class="bar health"><div class="fill" id="hp1"></div></div>
-        <div class="bar meter"><div class="fill" id="mt1"></div></div>
+    <!-- Marquee title -->
+    <header id="title-bar" aria-hidden="true">
+      <span class="title-name p1">SPARK</span>
+      <span class="title-vs">VS</span>
+      <span class="title-name p2">BLAZE</span>
+      <span class="title-sub">ENERGY&nbsp;DUEL</span>
+    </header>
+
+    <div id="arena">
+      <!-- HUD -->
+      <div id="hud">
+        <div class="player-hud" id="hud-p1">
+          <div class="name"><span class="tag">SPARK</span> <span class="weapon" id="wp1">FISTS</span></div>
+          <div class="bar health"><div class="fill" id="hp1"></div></div>
+          <div class="bar meter"><div class="fill" id="mt1"></div></div>
+        </div>
+
+        <div class="timer-badge"><div id="timer">&#8734;</div></div>
+
+        <div class="player-hud right" id="hud-p2">
+          <div class="name"><span class="weapon" id="wp2">FISTS</span> <span class="tag">BLAZE</span></div>
+          <div class="bar health"><div class="fill" id="hp2"></div></div>
+          <div class="bar meter"><div class="fill" id="mt2"></div></div>
+        </div>
       </div>
 
-      <div id="timer">&#8734;</div>
-
-      <div class="player-hud right" id="hud-p2">
-        <div class="name"><span class="weapon" id="wp2">FISTS</span> BLAZE</div>
-        <div class="bar health"><div class="fill" id="hp2"></div></div>
-        <div class="bar meter"><div class="fill" id="mt2"></div></div>
+      <div class="canvas-frame">
+        <canvas id="game" width="960" height="540"></canvas>
+        <div class="scanlines" aria-hidden="true"></div>
+        <div class="vignette" aria-hidden="true"></div>
       </div>
+
+      <!-- Center banner for round start / KO / winner -->
+      <div id="banner" class="hidden"><span id="banner-text"></span></div>
     </div>
 
-    <canvas id="game" width="960" height="540"></canvas>
-
-    <!-- Center banner for round start / KO / winner -->
-    <div id="banner" class="hidden"><span id="banner-text"></span></div>
-
     <footer id="controls">
-      <span><b>P1 (Spark):</b> A/D move (2&times;=dash) &middot; W jump &middot; S block &middot; F light &middot; G heavy &middot; S+G launcher &middot; H beam/super &middot; <b>Q weapon</b> &middot; <b>E ability</b></span>
-      <span><b>P2 (Blaze):</b> &larr;/&rarr; move (2&times;=dash) &middot; &uarr; jump &middot; &darr; block &middot; J light &middot; K heavy &middot; &darr;+K launcher &middot; L beam/super &middot; <b>U weapon</b> &middot; <b>O ability</b></span>
+      <div class="ctl p1">
+        <div class="ctl-head"><span class="dot"></span>P1 &middot; SPARK</div>
+        <div class="keys">
+          <span class="combo"><kbd>A</kbd><kbd>D</kbd> move &middot; 2&times; dash</span>
+          <span class="combo"><kbd>W</kbd> jump</span>
+          <span class="combo"><kbd>S</kbd> block</span>
+          <span class="combo"><kbd>F</kbd> light</span>
+          <span class="combo"><kbd>G</kbd> heavy</span>
+          <span class="combo"><kbd>S</kbd>+<kbd>G</kbd> launcher</span>
+          <span class="combo"><kbd>H</kbd> beam / super</span>
+          <span class="combo hot"><kbd>Q</kbd> weapon</span>
+          <span class="combo hot"><kbd>E</kbd> ability</span>
+        </div>
+      </div>
+      <div class="ctl p2">
+        <div class="ctl-head"><span class="dot"></span>P2 &middot; BLAZE</div>
+        <div class="keys">
+          <span class="combo"><kbd>&larr;</kbd><kbd>&rarr;</kbd> move &middot; 2&times; dash</span>
+          <span class="combo"><kbd>&uarr;</kbd> jump</span>
+          <span class="combo"><kbd>&darr;</kbd> block</span>
+          <span class="combo"><kbd>J</kbd> light</span>
+          <span class="combo"><kbd>K</kbd> heavy</span>
+          <span class="combo"><kbd>&darr;</kbd>+<kbd>K</kbd> launcher</span>
+          <span class="combo"><kbd>L</kbd> beam / super</span>
+          <span class="combo hot"><kbd>U</kbd> weapon</span>
+          <span class="combo hot"><kbd>O</kbd> ability</span>
+        </div>
+      </div>
     </footer>
   </div>
 
